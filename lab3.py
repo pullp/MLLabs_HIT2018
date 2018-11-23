@@ -92,9 +92,10 @@ class ClusterBasic:
     
         
 class Kmeans(ClusterBasic):
-    def __init__(self, data, type_count=2):
+    def __init__(self, data, type_count=2, max_iter=100):
         ClusterBasic.__init__(self, data, type_count)
         self.has_dynamic_point = True
+        self.max_iter = max_iter
         
     def _init_theta(self):
         self.mus = random.sample(self.data, self.type_count)
@@ -148,7 +149,8 @@ class Kmeans(ClusterBasic):
         dynamic_count = 0
         while(self.has_dynamic_point and current_iter < self.max_iter):
             log.debug('loop:' + str(current_iter))
-            self.plot('loop:' + str(current_iter))
+            if(current_iter % 4 == 0):
+                self.plot('loop:' + str(current_iter))
             current_iter += 1
             self.has_dynamic_point = False
             self._recalc_centers()
@@ -162,7 +164,7 @@ class Kmeans(ClusterBasic):
                         self.has_dynamic_point = True
                         self.clus[i].remove(point)
                         self.clus[new_idx].append(point)
-            
+        self.plot('result:' + str(current_iter))
             
 class GmmDataGenerator(DataGenerator):
     def __init__(self, 
@@ -197,6 +199,7 @@ class EM(ClusterBasic):
         ClusterBasic.__init__(self, data, type_count)
         self.max_iter = max_iter
         self.data = np.array(self.data)
+        self.prev_probs = np.zeros((self.data_count, self.type_count))
         
     def _init_theta(self):
         self.mus = random.sample(self.data, self.type_count)
@@ -238,11 +241,11 @@ class EM(ClusterBasic):
     def cluster(self):
         self.probs = np.array([ [0.0 for j in range(0, self.type_count)] 
                     for i in range(self.data_count)] )
-        # todo move to init_clus
         data_count = self.data_count
         current_iter= 0
         while current_iter < self.max_iter:
-            self.plot('loop:' + str(current_iter))
+            if(current_iter % 4 == 0):
+                self.plot('loop:' + str(current_iter))
             self.clus = [[] for i in range(self.type_count)]
             current_iter += 1
             #E step
@@ -256,6 +259,9 @@ class EM(ClusterBasic):
                     self.probs[i][j] = temp
                     sum_temp += temp
                 self.probs[i] /= sum_temp
+#            diff = abs(np.sum(self.prev_probs - self.probs))
+
+#            self.prev_probs = self.probs.copy()
             # M step
             # get new mu
             new_mus_up = [np.zeros(2) for i in range(self.type_count)]
@@ -287,7 +293,10 @@ class EM(ClusterBasic):
                     
             for j in range(0,self.type_count):
                 self.covs[j] = new_covs_up[j]  / N_k[j]
-                
+#            if(diff < 1e-10):
+#                print("break diff is:" + str(diff))
+#                break
+        self.plot('result' + str(current_iter))
             
 
 
@@ -295,7 +304,7 @@ def test_em():
     gdg = GmmDataGenerator(size = 300)
     gdg.plot()
     
-    em = EM(data = gdg.data, type_count=3)
+    em = EM(data = gdg.data, type_count=3, max_iter=30)
     em.cluster()
 
     
@@ -311,8 +320,8 @@ def test_dg():
 
 
 def test_kmeans():
-    type_count = 2
-    dg = DataGenerator(type_count = type_count, size = 1000)
+    type_count = 3
+    dg = DataGenerator(type_count = type_count, size = 100)
     data = dg.get_data()
 
     log.info('============k1==========')
